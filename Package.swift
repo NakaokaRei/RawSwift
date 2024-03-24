@@ -5,11 +5,20 @@ import PackageDescription
 
 let package = Package(
     name: "RawSwift",
+    platforms: [
+        .macOS(.v13)
+    ],
+    products: [
+        .library(name: "RawSwift", targets: ["RawSwift"])
+    ],
     targets: [
+        .target(
+            name: "RawSwift",
+            dependencies: ["libraw"]
+        ),
         .executableTarget(
-            name: "example",
-            dependencies: ["libraw"],
-            path: "Sources"
+            name: "Sample",
+            dependencies: ["libraw"]
         ),
         .systemLibrary(
             name: "libraw",
