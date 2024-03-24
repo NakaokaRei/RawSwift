@@ -1,5 +1,5 @@
-module libraw {
-    umbrella header "swiftlibraw_libraw.h"
-    link "libraw.h"
+module libraw [system] {
+    header "libraw.h"
+    link "libraw"
     export *
 }
