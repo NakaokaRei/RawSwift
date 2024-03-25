@@ -15,6 +15,7 @@
 		5C022ADA2BB1ADA900626135 /* RawSwift_exampleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C022AD92BB1ADA900626135 /* RawSwift_exampleUITests.swift */; };
 		5C022ADC2BB1ADA900626135 /* RawSwift_exampleUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C022ADB2BB1ADA900626135 /* RawSwift_exampleUITestsLaunchTests.swift */; };
 		5C7EE9F42BB1AF9C00EB5E4F /* RawSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 5C7EE9F32BB1AF9C00EB5E4F /* RawSwift */; };
+		5C7EE9F62BB1B23F00EB5E4F /* ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7EE9F52BB1B23F00EB5E4F /* ViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +48,7 @@
 		5C022AD92BB1ADA900626135 /* RawSwift_exampleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawSwift_exampleUITests.swift; sourceTree = "<group>"; };
 		5C022ADB2BB1ADA900626135 /* RawSwift_exampleUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawSwift_exampleUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		5C022AE82BB1ADE200626135 /* RawSwift */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = RawSwift; path = ../..; sourceTree = "<group>"; };
+		5C7EE9F52BB1B23F00EB5E4F /* ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +107,7 @@
 				5C022AC12BB1ADA900626135 /* Assets.xcassets */,
 				5C022AC62BB1ADA900626135 /* RawSwift_example.entitlements */,
 				5C022AC32BB1ADA900626135 /* Preview Content */,
+				5C7EE9F52BB1B23F00EB5E4F /* ViewModel.swift */,
 			);
 			path = "RawSwift-example";
 			sourceTree = "<group>";
@@ -275,6 +278,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5C022AC02BB1ADA800626135 /* ContentView.swift in Sources */,
+				5C7EE9F62BB1B23F00EB5E4F /* ViewModel.swift in Sources */,
 				5C022ABE2BB1ADA800626135 /* RawSwift_exampleApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -436,6 +440,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "RawSwift-example/RawSwift_example.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -463,6 +468,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "RawSwift-example/RawSwift_example.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;

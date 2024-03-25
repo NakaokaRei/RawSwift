@@ -1,5 +1,5 @@
 import libraw
 
-func librawVersion() -> String {
+public func librawVersion() -> String {
     String(cString: libraw_version())
 }
