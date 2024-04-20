@@ -9,10 +9,11 @@ public class RawSwift {
         String(cString: libraw_version())
     }
 
-    public func openFile(url: URL) -> libraw_data_t? {
+    public func openFile(url: URL) {
         let data = libraw_init(0)
-        libraw_open_file(data, url.path)
-        return data?.pointee as? libraw_data_t
+        let result = libraw_open_file(data, url.path)
+        print(result)
+        print(data?.pointee.params)
     }
 }
 

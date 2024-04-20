@@ -21,8 +21,7 @@ class ViewModel: ObservableObject {
         openPanel.begin { response in
             if response == .OK {
                 self.selectedRawImage = openPanel.url
-                let result = RawSwift().openFile(url: self.selectedRawImage!)
-                print(result)
+                RawSwift().openFile(url: self.selectedRawImage!)
             }
         }
     }
