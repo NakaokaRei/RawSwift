@@ -16,6 +16,10 @@ public class ImageProcessing {
             return nil
         }
 
+        guard unpackThumb(rawdata) == LIBRAW_SUCCESS else {
+            return nil
+        }
+
         guard process(rawdata) == LIBRAW_SUCCESS else {
             return nil
         }
@@ -30,6 +34,20 @@ public class ImageProcessing {
     /// Unpacks the RAW files of the image, calculates the black level (not for all formats). The results are placed in imgdata.image.
     static func unpackFile(_ rawdata: UnsafeMutablePointer<libraw_data_t>) -> LibRaw_errors {
         let result = libraw_unpack(rawdata);
+
+        if (result != LIBRAW_SUCCESS.rawValue) {
+            if #available(OSX 11.0, *) {
+                let defaultLog = Logger()
+                let errorMessage = String(cString: libraw_strerror(result))
+                defaultLog.log("LibRaw error: \(errorMessage)")
+            }
+            libraw_close(rawdata);
+        }
+        return LibRaw_errors.init(result)
+    }
+
+    static func unpackThumb(_ rawdata: UnsafeMutablePointer<libraw_data_t>) -> LibRaw_errors {
+        let result = libraw_unpack_thumb(rawdata);
 
         if (result != LIBRAW_SUCCESS.rawValue) {
             if #available(OSX 11.0, *) {
@@ -59,7 +77,7 @@ public class ImageProcessing {
         return LibRaw_errors.init(result)
     }
 
-    static func  process(_ rawdata: UnsafeMutablePointer<libraw_data_t>) -> LibRaw_errors {
+    static func process(_ rawdata: UnsafeMutablePointer<libraw_data_t>) -> LibRaw_errors {
         let result = libraw_dcraw_process(rawdata);
         if (result != LIBRAW_SUCCESS.rawValue) {
             if #available(OSX 11.0, *) {
@@ -93,27 +111,26 @@ public class ImageProcessing {
         if let data = processedImage?.pointee {
             let heigth = Int(data.height)
             let width = Int(data.width)
-            let numberOfComponents = 3
+            let numberOfComponents = Int(data.colors)
             let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
 
-            let totalSize : Int = MemoryLayout.size(ofValue: processedImage) + Int(data.data_size)
+            let totalSize = Int(data.data_size)
 
             // TODO: Image bytes start at processedImage.data - pointer needs to be moved a bit
-            let rgbData = (processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize)  {
+            let rgbData = (processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) {
                 return CFDataCreate(nil, $0, Int(data.data_size))!
             })!
 
-
             let provider = CGDataProvider(data: rgbData)!
+            let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
 
-            // TODO: Image seems to be perfectly black - why?
             let rgbImageRef = CGImage(width: width,
                                       height: heigth,
                                       bitsPerComponent: Int(data.bits),
-                                      bitsPerPixel: Int(data.bits) *  3,
+                                      bitsPerPixel: Int(data.bits) * numberOfComponents,
                                       bytesPerRow: width * numberOfComponents,
                                       space: colorSpace,
-                                      bitmapInfo: CGBitmapInfo(),
+                                      bitmapInfo: bitmapInfo,
                                       provider: provider,
                                       decode: nil,
                                       shouldInterpolate: true,
