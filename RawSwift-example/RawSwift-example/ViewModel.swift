@@ -11,7 +11,8 @@ import RawSwift
 
 @MainActor
 class ViewModel: ObservableObject {
-    var selectedRawImage: URL?
+
+    @Published var cgImage: CGImage?
     let fileHandling = FileHandling()
 
     func selectRawImage() {
@@ -21,10 +22,9 @@ class ViewModel: ObservableObject {
         openPanel.allowedContentTypes = [.rawImage]
         openPanel.begin { response in
             if response == .OK {
-                self.selectedRawImage = openPanel.url
-                var rawData = FileHandling.initLibRawData()
-                self.fileHandling.openFile(url: self.selectedRawImage!, rawData: rawData)
-                print(rawData.pointee)
+                let rawData = FileHandling.initLibRawData()
+                let _ = self.fileHandling.openFile(url: openPanel.url!, rawdata: rawData)
+                self.cgImage = ImageProcessing.getImageFromData(rawData)
             }
         }
     }
