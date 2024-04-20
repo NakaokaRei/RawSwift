@@ -7,6 +7,7 @@
 
 import Foundation
 import AppKit
+import RawSwift
 
 @MainActor
 class ViewModel: ObservableObject {
@@ -20,7 +21,8 @@ class ViewModel: ObservableObject {
         openPanel.begin { response in
             if response == .OK {
                 self.selectedRawImage = openPanel.url
-                print(self.selectedRawImage)
+                let result = RawSwift().openFile(url: self.selectedRawImage!)
+                print(result)
             }
         }
     }
