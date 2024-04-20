@@ -16,9 +16,13 @@ public class ImageProcessing {
             return nil
         }
 
-        guard rawToImage(rawdata) == LIBRAW_SUCCESS else {
+        guard process(rawdata) == LIBRAW_SUCCESS else {
             return nil
         }
+
+//        guard rawToImage(rawdata) == LIBRAW_SUCCESS else {
+//            return nil
+//        }
 
         return imageToCGImage(rawdata)
     }
