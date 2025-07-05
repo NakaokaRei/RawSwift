@@ -196,6 +196,16 @@ public class ImageProcessing {
         rawdata.pointee.params.output_color = 1   // sRGB色空間
         rawdata.pointee.params.output_bps = 8     // 8bit出力
         rawdata.pointee.params.output_tiff = 0    // TIFF出力無効
+        rawdata.pointee.params.use_camera_matrix = 1  // カメラマトリックス使用
+        rawdata.pointee.params.half_size = 0      // フルサイズ出力
+        
+        // デバッグ用: より確実な色設定
+        rawdata.pointee.params.user_flip = 0
+        rawdata.pointee.params.user_black = 0
+        rawdata.pointee.params.user_cblack.0 = 0
+        rawdata.pointee.params.user_cblack.1 = 0
+        rawdata.pointee.params.user_cblack.2 = 0
+        rawdata.pointee.params.user_cblack.3 = 0
         
         return LibRaw_errors.init(LIBRAW_SUCCESS.rawValue)
     }
@@ -296,16 +306,31 @@ public class ImageProcessing {
         let imageDataSize = height * width * numberOfComponents * (bitsPerComponent / 8)
         let totalSize = Int(data.data_size)
         
-        // processedImageから直接データを取得
-        let rgbData = processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) {
-            return CFDataCreate(nil, $0, imageDataSize)!
+        // processedImageから直接データを取得して色チャンネルをチェック
+        let rgbData = processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) { ptr in
+            // 色チャンネルが3の場合、RGBからBGRの変換が必要か確認
+            if numberOfComponents == 3 {
+                let mutableData = Data(bytes: ptr, count: imageDataSize)
+                var bytes = Array(mutableData)
+                
+                // R と B チャンネルを入れ替える (BGR -> RGB変換)
+                for i in stride(from: 0, to: bytes.count, by: 3) {
+                    let temp = bytes[i]      // R
+                    bytes[i] = bytes[i + 2]  // R <- B
+                    bytes[i + 2] = temp      // B <- R
+                }
+                
+                return CFDataCreate(nil, bytes, imageDataSize)!
+            } else {
+                return CFDataCreate(nil, ptr, imageDataSize)!
+            }
         }
         
         guard let provider = CGDataProvider(data: rgbData!) else {
             return nil
         }
         
-        // RGB順序でCGImageを作成（LibRawはRGB順序で出力）
+        // RGB順序でCGImageを作成
         let bitmapInfo: CGBitmapInfo = [
             CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
             CGBitmapInfo(rawValue: CGBitmapInfo.byteOrderDefault.rawValue)
