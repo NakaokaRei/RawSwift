@@ -18,7 +18,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "Sample",
-            dependencies: ["libraw"]
+            dependencies: ["RawSwift", "libraw"]
         ),
         .systemLibrary(
             name: "libraw",

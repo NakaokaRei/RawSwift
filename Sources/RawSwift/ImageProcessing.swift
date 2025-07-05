@@ -2,6 +2,8 @@ import Foundation
 import libraw
 import OSLog
 import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
 
 public class ImageProcessing {
 
@@ -18,7 +20,7 @@ public class ImageProcessing {
         public var gamma: Float = 2.2          // ガンマ (0.5 ~ 4.0)
         public var highlightRecovery: Int32 = 0 // ハイライト復元 (0-9)
         public var shadowRecovery: Float = 0.0  // シャドウ復元 - カスタム実装 (0.0 ~ 1.0)
-        public var useCameraWB: Bool = true    // カメラのホワイトバランス使用
+        public var useCameraWB: Bool = false   // カメラのホワイトバランス使用
         public var useAutoWB: Bool = false     // 自動ホワイトバランス使用
         public var demosaicAlgorithm: DemosaicAlgorithm = .dcbInterpolation
         public var noAutoBright: Bool = false  // 自動明度調整を無効化
@@ -155,34 +157,37 @@ public class ImageProcessing {
         // デモザイクアルゴリズム
         rawdata.pointee.params.user_qual = params.demosaicAlgorithm.rawValue
         
-        // ホワイトバランス設定
-        rawdata.pointee.params.use_camera_wb = params.useCameraWB ? 1 : 0
-        rawdata.pointee.params.use_auto_wb = params.useAutoWB ? 1 : 0
-        
-        // ホワイトバランスの優先順位を明確化
-        if !params.useCameraWB && !params.useAutoWB {
-            // マニュアルホワイトバランスの場合のみuser_mulを設定
-        } else {
-            // camera WBまたはauto WBの場合はuser_mulをリセット
+        // ホワイトバランス設定の優先順位を明確化
+        if params.useCameraWB {
+            // カメラWB優先
+            rawdata.pointee.params.use_camera_wb = 1
+            rawdata.pointee.params.use_auto_wb = 0
+            // user_mulをゼロクリアしてカメラWBを確実に使用
             rawdata.pointee.params.user_mul.0 = 0
             rawdata.pointee.params.user_mul.1 = 0
             rawdata.pointee.params.user_mul.2 = 0
             rawdata.pointee.params.user_mul.3 = 0
+        } else if params.useAutoWB {
+            // 自動WB
+            rawdata.pointee.params.use_camera_wb = 0
+            rawdata.pointee.params.use_auto_wb = 1
+            rawdata.pointee.params.user_mul.0 = 0
+            rawdata.pointee.params.user_mul.1 = 0
+            rawdata.pointee.params.user_mul.2 = 0
+            rawdata.pointee.params.user_mul.3 = 0
+        } else {
+            // マニュアルWB
+            rawdata.pointee.params.use_camera_wb = 0
+            rawdata.pointee.params.use_auto_wb = 0
         }
         
         // マニュアル色温度設定（カメラWBと自動WB両方が無効時のみ）
         if !params.useCameraWB && !params.useAutoWB {
-            // 色温度からケルビン→RGB変換（Planckian locus近似）
-            let temp = Double(params.temperature)
-            let (rMul, gMul, bMul) = kelvinToRGB(temp)
-            
-            // tint補正を適用
-            let tintFactor = 1.0 + Double(params.tint) / 100.0
-            
-            rawdata.pointee.params.user_mul.0 = Float(rMul)                    // R
-            rawdata.pointee.params.user_mul.1 = Float(gMul * tintFactor)       // G
-            rawdata.pointee.params.user_mul.2 = Float(bMul)                    // B
-            rawdata.pointee.params.user_mul.3 = Float(gMul * tintFactor)       // G2
+            // より自然なバランスに調整
+            rawdata.pointee.params.user_mul.0 = 1.0  // R (基準)
+            rawdata.pointee.params.user_mul.1 = 0.9  // G (軽く抑制)
+            rawdata.pointee.params.user_mul.2 = 1.1  // B (軽く強化)
+            rawdata.pointee.params.user_mul.3 = 0.9  // G2 (軽く抑制)
         }
         
         // ハイライト復元モード (0: clip, 1: unclip, 2: blend, 3-9: rebuild)
@@ -193,14 +198,18 @@ public class ImageProcessing {
         rawdata.pointee.params.four_color_rgb = params.fourColorRGB ? 1 : 0
         
         // 出力設定
-        rawdata.pointee.params.output_color = 1   // sRGB色空間
+        rawdata.pointee.params.output_color = 0   // RAW色空間（カラーマトリックス変換なし）
         rawdata.pointee.params.output_bps = 8     // 8bit出力
         rawdata.pointee.params.output_tiff = 0    // TIFF出力無効
         rawdata.pointee.params.use_camera_matrix = 1  // カメラマトリックス使用
         rawdata.pointee.params.half_size = 0      // フルサイズ出力
         
-        // デバッグ用: より確実な色設定
-        rawdata.pointee.params.user_flip = 0
+        // カラープロファイル設定を標準化
+        rawdata.pointee.params.camera_profile = nil  // 埋め込みプロファイル無効
+        rawdata.pointee.params.output_profile = nil  // 出力プロファイル無効
+        
+        // 向きの問題を解決: カメラのEXIF回転情報を使用
+        rawdata.pointee.params.user_flip = -1    // -1: EXIFに従って自動回転
         rawdata.pointee.params.user_black = 0
         rawdata.pointee.params.user_cblack.0 = 0
         rawdata.pointee.params.user_cblack.1 = 0
@@ -306,18 +315,18 @@ public class ImageProcessing {
         let imageDataSize = height * width * numberOfComponents * (bitsPerComponent / 8)
         let totalSize = Int(data.data_size)
         
-        // processedImageから直接データを取得して色チャンネルをチェック
+        // processedImageから直接データを取得して色チャンネルを修正
         let rgbData = processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) { ptr in
-            // 色チャンネルが3の場合、RGBからBGRの変換が必要か確認
             if numberOfComponents == 3 {
                 let mutableData = Data(bytes: ptr, count: imageDataSize)
                 var bytes = Array(mutableData)
                 
-                // R と B チャンネルを入れ替える (BGR -> RGB変換)
+                // LibRawの出力がBGR順序の場合、RGB順序に変換
                 for i in stride(from: 0, to: bytes.count, by: 3) {
-                    let temp = bytes[i]      // R
-                    bytes[i] = bytes[i + 2]  // R <- B
-                    bytes[i + 2] = temp      // B <- R
+                    let temp = bytes[i]      // B
+                    bytes[i] = bytes[i + 2]  // B <- R
+                    bytes[i + 2] = temp      // R <- B
+                    // G (bytes[i + 1]) はそのまま
                 }
                 
                 return CFDataCreate(nil, bytes, imageDataSize)!
@@ -351,6 +360,84 @@ public class ImageProcessing {
         )
 
         return cgImage
+    }
+    
+    // MARK: - JPEG Export Functions
+    
+    /// RAW画像を処理してJPEGファイルとして保存
+    public static func saveRawAsJpeg(
+        _ rawdata: UnsafeMutablePointer<libraw_data_t>,
+        to outputPath: URL,
+        params: ProcessingParams = ProcessingParams(),
+        quality: Float = 0.9
+    ) -> Bool {
+        guard let cgImage = getImageFromData(rawdata, params: params) else {
+            return false
+        }
+        
+        return saveCGImageAsJpeg(cgImage, to: outputPath, quality: quality)
+    }
+    
+    /// RAWファイルからJPEGファイルを直接作成
+    public static func convertRawToJpeg(
+        inputPath: URL,
+        outputPath: URL,
+        params: ProcessingParams = ProcessingParams(),
+        quality: Float = 0.9
+    ) -> Bool {
+        // RAWファイルを開く
+        let rawdata = FileHandling.initLibRawData()
+        
+        defer {
+            libraw_close(rawdata)
+        }
+        
+        let fileHandler = FileHandling()
+        guard fileHandler.openFile(url: inputPath, rawdata: rawdata) == LIBRAW_SUCCESS else {
+            return false
+        }
+        
+        return saveRawAsJpeg(rawdata, to: outputPath, params: params, quality: quality)
+    }
+    
+    /// CGImageをJPEGファイルとして保存
+    public static func saveCGImageAsJpeg(
+        _ image: CGImage,
+        to outputPath: URL,
+        quality: Float = 0.9
+    ) -> Bool {
+        guard let destination = CGImageDestinationCreateWithURL(
+            outputPath as CFURL,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else {
+            if #available(OSX 11.0, *) {
+                let defaultLog = Logger()
+                defaultLog.log("Failed to create JPEG destination")
+            }
+            return false
+        }
+        
+        // JPEG品質設定
+        let options: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: quality
+        ]
+        
+        // 画像を追加
+        CGImageDestinationAddImage(destination, image, options as CFDictionary)
+        
+        // ファイルに書き込み
+        let success = CGImageDestinationFinalize(destination)
+        
+        if !success {
+            if #available(OSX 11.0, *) {
+                let defaultLog = Logger()
+                defaultLog.log("Failed to write JPEG file")
+            }
+        }
+        
+        return success
     }
 
 }
