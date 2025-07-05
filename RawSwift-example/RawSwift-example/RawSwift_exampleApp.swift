@@ -11,7 +11,8 @@ import SwiftUI
 struct RawSwift_exampleApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RawImageEditView()
         }
+        .windowResizability(.contentSize)
     }
 }
