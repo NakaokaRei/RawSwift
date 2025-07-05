@@ -14,9 +14,9 @@ public class ImageProcessing {
         public var exposure: Float = 0.0        // 露出補正 (-3.0 ~ +3.0 stops)
         public var brightness: Float = 1.0      // 明るさ (0.25 ~ 8.0)
         public var temperature: Float = 6500.0  // 色温度 (K) - 設定可能だが、カメラWB使用時は無効
-        public var tint: Float = 0.0           // 色合い補正 - カスタム実装
-        public var contrast: Float = 1.0       // コントラスト - カスタム実装 (0.0 ~ 4.0)
-        public var saturation: Float = 1.0     // 彩度 - カスタム実装 (0.0 ~ 4.0)
+        public var tint: Float = 0.0           // 色合い補正 - LibRawでは未対応、後処理が必要
+        public var contrast: Float = 1.0       // コントラスト - LibRawでは未対応、後処理が必要
+        public var saturation: Float = 1.0     // 彩度 - LibRawでは未対応、後処理が必要
         public var gamma: Float = 2.2          // ガンマ (0.5 ~ 4.0)
         public var highlightRecovery: Int32 = 0 // ハイライト復元 (0-9)
         public var shadowRecovery: Float = 0.0  // シャドウ復元 - カスタム実装 (0.0 ~ 1.0)
@@ -59,9 +59,9 @@ public class ImageProcessing {
             return nil
         }
 
-        guard rawToImage(rawdata) == LIBRAW_SUCCESS else {
-            return nil
-        }
+//        guard rawToImage(rawdata) == LIBRAW_SUCCESS else {
+//            return nil
+//        }
 
         guard process(rawdata) == LIBRAW_SUCCESS else {
             return nil
@@ -201,9 +201,9 @@ public class ImageProcessing {
         rawdata.pointee.params.output_color = 1   // sRGB色空間
         rawdata.pointee.params.output_bps = 8     // 8bit出力
         rawdata.pointee.params.output_tiff = 0    // TIFF出力無効
-        rawdata.pointee.params.use_camera_matrix = 1  // カメラマトリックス使用
+        rawdata.pointee.params.use_camera_matrix = 3  // 常に埋め込みカラーデータを使用（赤みを修正）
         rawdata.pointee.params.half_size = 0      // フルサイズ出力
-        
+
         // カラープロファイル設定を標準化
         rawdata.pointee.params.camera_profile = nil  // 埋め込みプロファイル無効
         rawdata.pointee.params.output_profile = nil  // 出力プロファイル無効
