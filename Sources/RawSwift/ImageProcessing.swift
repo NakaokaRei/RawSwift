@@ -25,7 +25,7 @@ public class ImageProcessing {
         public var demosaicAlgorithm: DemosaicAlgorithm = .dcbInterpolation
         public var noAutoBright: Bool = false  // 自動明度調整を無効化
         public var fourColorRGB: Bool = false  // 4色RGB補間を使用
-        
+
         public init() {}
     }
     
@@ -59,7 +59,7 @@ public class ImageProcessing {
             return nil
         }
 
-        guard unpackThumb(rawdata) == LIBRAW_SUCCESS else {
+        guard rawToImage(rawdata) == LIBRAW_SUCCESS else {
             return nil
         }
 
@@ -310,15 +310,17 @@ public class ImageProcessing {
         let numberOfComponents = Int(data.colors)
         let bitsPerComponent = Int(data.bits)
         let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
-        
+
         // LibRawのデータポインターから正しくデータを取得
         let imageDataSize = height * width * numberOfComponents * (bitsPerComponent / 8)
-        let totalSize = Int(data.data_size)
         
-        // processedImageから直接データを取得
-        let rgbData = processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) { ptr in
-            // sRGB色空間とカメラマトリックス使用時はそのまま使用
-            return CFDataCreate(nil, ptr, imageDataSize)!
+        // libraw_processed_image_tの画像データへの安全なアクセス
+        // processedImage全体から画像データ部分を計算してアクセス
+        let rgbData = processedImage?.withMemoryRebound(to: UInt8.self, capacity: Int(data.data_size)) { ptr in
+            // 構造体のヘッダーをスキップして画像データ部分にアクセス
+            let headerSize = MemoryLayout<libraw_processed_image_t>.size - MemoryLayout<UInt8>.size
+            let imageDataPtr = ptr.advanced(by: headerSize)
+            return CFDataCreate(nil, imageDataPtr, imageDataSize)
         }
         
         guard let provider = CGDataProvider(data: rgbData!) else {
