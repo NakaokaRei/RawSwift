@@ -47,7 +47,7 @@ class RawImageViewModel: ObservableObject {
     @Published var gamma: Float = 2.2 {
         didSet { updateProcessingParams() }
     }
-    @Published var highlightRecovery: Float = 0.0 {
+    @Published var highlightRecovery: Int32 = 0 {
         didSet { updateProcessingParams() }
     }
     @Published var shadowRecovery: Float = 0.0 {
@@ -193,7 +193,7 @@ class RawImageViewModel: ObservableObject {
         contrast = 1.0
         saturation = 1.0
         gamma = 2.2
-        highlightRecovery = 0.0
+        highlightRecovery = 0
         shadowRecovery = 0.0
         useCameraWB = true
         demosaicAlgorithm = .dcbInterpolation

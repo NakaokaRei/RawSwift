@@ -78,7 +78,7 @@ struct RawImageEditView: View {
                                 SliderControl(
                                     label: "Exposure",
                                     value: $viewModel.exposure,
-                                    range: -4.0...4.0,
+                                    range: -3.0...3.0,
                                     step: 0.1,
                                     unit: "EV"
                                 )
@@ -91,11 +91,10 @@ struct RawImageEditView: View {
                                     unit: ""
                                 )
                                 
-                                SliderControl(
+                                IntSliderControl(
                                     label: "Highlight Recovery",
                                     value: $viewModel.highlightRecovery,
-                                    range: 0.0...1.0,
-                                    step: 0.01,
+                                    range: 0...9,
                                     unit: ""
                                 )
                                 
@@ -297,6 +296,40 @@ struct SliderControl: View {
             
             Slider(value: $value, in: range, step: step)
                 .disabled(isDisabled)
+        }
+    }
+}
+
+// MARK: - Integer Slider Control Component
+struct IntSliderControl: View {
+    let label: String
+    @Binding var value: Int32
+    let range: ClosedRange<Int32>
+    let unit: String
+    var isDisabled: Bool = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label)
+                    .font(.caption)
+                    .foregroundColor(isDisabled ? .secondary : .primary)
+                Spacer()
+                Text("\(value)\(unit)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+            }
+            
+            Slider(
+                value: Binding(
+                    get: { Double(value) },
+                    set: { value = Int32($0.rounded()) }
+                ),
+                in: Double(range.lowerBound)...Double(range.upperBound),
+                step: 1.0
+            )
+            .disabled(isDisabled)
         }
     }
 }
