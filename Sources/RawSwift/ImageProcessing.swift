@@ -159,6 +159,17 @@ public class ImageProcessing {
         rawdata.pointee.params.use_camera_wb = params.useCameraWB ? 1 : 0
         rawdata.pointee.params.use_auto_wb = params.useAutoWB ? 1 : 0
         
+        // ホワイトバランスの優先順位を明確化
+        if !params.useCameraWB && !params.useAutoWB {
+            // マニュアルホワイトバランスの場合のみuser_mulを設定
+        } else {
+            // camera WBまたはauto WBの場合はuser_mulをリセット
+            rawdata.pointee.params.user_mul.0 = 0
+            rawdata.pointee.params.user_mul.1 = 0
+            rawdata.pointee.params.user_mul.2 = 0
+            rawdata.pointee.params.user_mul.3 = 0
+        }
+        
         // マニュアル色温度設定（カメラWBと自動WB両方が無効時のみ）
         if !params.useCameraWB && !params.useAutoWB {
             // 色温度からケルビン→RGB変換（Planckian locus近似）
@@ -253,41 +264,68 @@ public class ImageProcessing {
             return nil
         }
 
-        if let data = processedImage?.pointee {
-            let heigth = Int(data.height)
-            let width = Int(data.width)
-            let numberOfComponents = Int(data.colors)
-            let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
-
-            let totalSize = Int(data.data_size)
-
-            // TODO: Image bytes start at processedImage.data - pointer needs to be moved a bit
-            let rgbData = (processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) {
-                return CFDataCreate(nil, $0, Int(data.data_size))!
-            })!
-
-            let provider = CGDataProvider(data: rgbData)!
-            let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
-
-            let rgbImageRef = CGImage(width: width,
-                                      height: heigth,
-                                      bitsPerComponent: Int(data.bits),
-                                      bitsPerPixel: Int(data.bits) * numberOfComponents,
-                                      bytesPerRow: width * numberOfComponents,
-                                      space: colorSpace,
-                                      bitmapInfo: bitmapInfo,
-                                      provider: provider,
-                                      decode: nil,
-                                      shouldInterpolate: true,
-                                      intent: CGColorRenderingIntent.defaultIntent)
-
-            return rgbImageRef
-
+        defer {
+            // LibRawによって割り当てられたメモリを解放
+            if let processedImage = processedImage {
+                libraw_dcraw_clear_mem(processedImage)
+            }
+            libraw_recycle(rawdata);
+            libraw_close(rawdata);
         }
 
-        libraw_recycle(rawdata);
-        libraw_close(rawdata);
-        return nil
+        guard let data = processedImage?.pointee else {
+            return nil
+        }
+        
+        // ビットマップタイプのみサポート
+        guard data.type == LIBRAW_IMAGE_BITMAP else {
+            if #available(OSX 11.0, *) {
+                let defaultLog = Logger()
+                defaultLog.log("Unsupported image type")
+            }
+            return nil
+        }
+
+        let height = Int(data.height)
+        let width = Int(data.width)
+        let numberOfComponents = Int(data.colors)
+        let bitsPerComponent = Int(data.bits)
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+        
+        // LibRawのデータポインターから正しくデータを取得
+        let imageDataSize = height * width * numberOfComponents * (bitsPerComponent / 8)
+        let totalSize = Int(data.data_size)
+        
+        // processedImageから直接データを取得
+        let rgbData = processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) {
+            return CFDataCreate(nil, $0, imageDataSize)!
+        }
+        
+        guard let provider = CGDataProvider(data: rgbData!) else {
+            return nil
+        }
+        
+        // RGB順序でCGImageを作成（LibRawはRGB順序で出力）
+        let bitmapInfo: CGBitmapInfo = [
+            CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+            CGBitmapInfo(rawValue: CGBitmapInfo.byteOrderDefault.rawValue)
+        ]
+        
+        let cgImage = CGImage(
+            width: width,
+            height: height,
+            bitsPerComponent: bitsPerComponent,
+            bitsPerPixel: bitsPerComponent * numberOfComponents,
+            bytesPerRow: width * numberOfComponents * (bitsPerComponent / 8),
+            space: colorSpace,
+            bitmapInfo: bitmapInfo,
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: true,
+            intent: CGColorRenderingIntent.defaultIntent
+        )
+
+        return cgImage
     }
 
 }
