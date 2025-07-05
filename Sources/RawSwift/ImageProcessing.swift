@@ -20,7 +20,7 @@ public class ImageProcessing {
         public var gamma: Float = 2.2          // ガンマ (0.5 ~ 4.0)
         public var highlightRecovery: Int32 = 0 // ハイライト復元 (0-9)
         public var shadowRecovery: Float = 0.0  // シャドウ復元 - カスタム実装 (0.0 ~ 1.0)
-        public var useCameraWB: Bool = false   // カメラのホワイトバランス使用
+        public var useCameraWB: Bool = true    // カメラのホワイトバランス使用
         public var useAutoWB: Bool = false     // 自動ホワイトバランス使用
         public var demosaicAlgorithm: DemosaicAlgorithm = .dcbInterpolation
         public var noAutoBright: Bool = false  // 自動明度調整を無効化
@@ -198,7 +198,7 @@ public class ImageProcessing {
         rawdata.pointee.params.four_color_rgb = params.fourColorRGB ? 1 : 0
         
         // 出力設定
-        rawdata.pointee.params.output_color = 0   // RAW色空間（カラーマトリックス変換なし）
+        rawdata.pointee.params.output_color = 1   // sRGB色空間
         rawdata.pointee.params.output_bps = 8     // 8bit出力
         rawdata.pointee.params.output_tiff = 0    // TIFF出力無効
         rawdata.pointee.params.use_camera_matrix = 1  // カメラマトリックス使用
@@ -315,24 +315,10 @@ public class ImageProcessing {
         let imageDataSize = height * width * numberOfComponents * (bitsPerComponent / 8)
         let totalSize = Int(data.data_size)
         
-        // processedImageから直接データを取得して色チャンネルを修正
+        // processedImageから直接データを取得
         let rgbData = processedImage?.withMemoryRebound(to: UInt8.self, capacity: totalSize) { ptr in
-            if numberOfComponents == 3 {
-                let mutableData = Data(bytes: ptr, count: imageDataSize)
-                var bytes = Array(mutableData)
-                
-                // LibRawの出力がBGR順序の場合、RGB順序に変換
-                for i in stride(from: 0, to: bytes.count, by: 3) {
-                    let temp = bytes[i]      // B
-                    bytes[i] = bytes[i + 2]  // B <- R
-                    bytes[i + 2] = temp      // R <- B
-                    // G (bytes[i + 1]) はそのまま
-                }
-                
-                return CFDataCreate(nil, bytes, imageDataSize)!
-            } else {
-                return CFDataCreate(nil, ptr, imageDataSize)!
-            }
+            // sRGB色空間とカメラマトリックス使用時はそのまま使用
+            return CFDataCreate(nil, ptr, imageDataSize)!
         }
         
         guard let provider = CGDataProvider(data: rgbData!) else {
